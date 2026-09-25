@@ -18,6 +18,24 @@ function getDepPathRegex (dependencies) {
   return deps.length ? new RegExp(deps.join('|')) : null
 }
 
+function genTranspiledDepsCacheKey (dependencies = {}, transpileDepRegex) {
+  if (!transpileDepRegex) return null
+  return Object
+    .keys(dependencies)
+    .reduce((acc, dep) => {
+      const depPath = path.join('node_modules', dep, '/')
+      if (transpileDepRegex.test(depPath)) {
+        acc[dep] = dependencies[dep]
+      }
+      return acc
+    }, {})
+}
+
+module.exports = (api, options) => {
+  const useThreads = process.env.NODE_ENV === 'production' && !!options.parallel
+  const cliServicePath = require('path').dirname(require.resolve('@vue/cli-service'))
+  const transpileDepRegex = genTranspileDepRegex(options.transpileDependencies)
+  const transpiledDependencies = genTranspiledDepsCacheKey(api.service.pkg.dependencies, transpileDepRegex)
 /** @type {import('@vue/cli-service').ServicePlugin} */
 module.exports = (api, options) => {
   const useThreads = process.env.NODE_ENV === 'production' && !!options.parallel
@@ -94,7 +112,6 @@ module.exports = (api, options) => {
             return /node_modules/.test(filepath) ? SHOULD_SKIP : SHOULD_TRANSPILE
           })
           .end()
-
     if (useThreads) {
       const threadLoaderConfig = jsRule
         .use('thread-loader')
