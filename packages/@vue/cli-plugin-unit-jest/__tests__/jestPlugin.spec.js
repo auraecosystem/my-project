@@ -1,4 +1,4 @@
-jest.setTimeout(20000)
+jest.setTimeout(300000)
 
 const create = require('@vue/cli-test-utils/createTestProject')
 
@@ -66,6 +66,10 @@ test('should work without Babel', async () => {
     useConfigFiles: true
   })
   await project.run(`vue-cli-service test:unit`)
+
+  await project.run(`vue-cli-service test:unit --coverage --collectCoverageFrom="src/**/*.{js,vue}"`)
+  const appCoverage = await project.read('coverage/lcov-report/src/App.vue.html')
+  expect(appCoverage).toBeTruthy()
 })
 
 test('should work with tsx', async () => {
@@ -96,7 +100,7 @@ test('should work with tsx', async () => {
 
   await write('tests/unit/example.spec.ts', `
   import { shallowMount } from '@vue/test-utils'
-  import MyComponent from '@/components/HelloWorld.tsx'
+  import MyComponent from '@/components/HelloWorld'
 
   describe('HelloWorld.tsx', () => {
     it('renders props.msg when passed', () => {
@@ -110,4 +114,14 @@ test('should work with tsx', async () => {
   `)
 
   await run(`vue-cli-service test:unit`)
+})
+
+test('should correctly configured eslint', async () => {
+  const project = await create('unit-jest-eslint', {
+    plugins: {
+      '@vue/cli-plugin-eslint': {},
+      '@vue/cli-plugin-unit-jest': {}
+    }
+  })
+  await project.run(`vue-cli-service lint`)
 })

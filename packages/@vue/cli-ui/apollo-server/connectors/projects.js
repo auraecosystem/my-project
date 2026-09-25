@@ -49,7 +49,7 @@ function findByPath (file, context) {
 }
 
 function autoClean (projects, context) {
-  let result = []
+  const result = []
   for (const project of projects) {
     if (fs.existsSync(project.path)) {
       result.push(project)
@@ -75,9 +75,11 @@ function getLast (context) {
 }
 
 function generatePresetDescription (preset) {
-  let description = preset.features.join(', ')
+  let description = `[Vue ${preset.raw.vueVersion || 2}] `
+
+  description += preset.features.join(', ')
   if (preset.raw.useConfigFiles) {
-    description += ` (Use config files)`
+    description += ' (Use config files)'
   }
   return description
 }
@@ -130,9 +132,16 @@ async function initCreator (context) {
         const features = getFeatures(preset).map(
           f => toShortPluginId(f)
         )
+
+        let name = key
+        if (key === 'default') {
+          name = 'org.vue.views.project-create.tabs.presets.default-preset'
+        } else if (key === '__default_vue_3__') {
+          name = 'org.vue.views.project-create.tabs.presets.default-preset-vue-3'
+        }
         const info = {
           id: key,
-          name: key === 'default' ? 'org.vue.views.project-create.tabs.presets.default-preset' : key,
+          name,
           features,
           link: null,
           raw: preset
@@ -263,7 +272,7 @@ async function create (input, context) {
     creator.context = targetDir
 
     const inCurrent = input.folder === '.'
-    const name = creator.name = (inCurrent ? path.relative('../', process.cwd()) : input.folder).toLowerCase()
+    const name = creator.name = (inCurrent ? path.relative('../', process.cwd()) : input.folder)
 
     // Answers
     const answers = prompts.getAnswers()
@@ -347,7 +356,7 @@ async function create (input, context) {
     removeCreator()
 
     notify({
-      title: `Project created`,
+      title: 'Project created',
       message: `Project ${cwd.get()} created`,
       icon: 'done'
     })
@@ -466,7 +475,7 @@ async function autoOpenLastProject () {
     try {
       await open(id, context)
     } catch (e) {
-      log(`Project can't be auto-opened`, id)
+      log('Project can\'t be auto-opened', id)
     }
   }
 }

@@ -1,6 +1,6 @@
 # Working with CSS
 
-Vue CLI projects comes with support for [PostCSS](http://postcss.org/), [CSS Modules](https://github.com/css-modules/css-modules) and pre-processors including [Sass](https://sass-lang.com/), [Less](http://lesscss.org/) and [Stylus](http://stylus-lang.com/).
+Vue CLI projects come with support for [PostCSS](http://postcss.org/), [CSS Modules](https://github.com/css-modules/css-modules) and pre-processors including [Sass](https://sass-lang.com/), [Less](http://lesscss.org/) and [Stylus](http://stylus-lang.com/).
 
 ## Referencing Assets
 
@@ -10,7 +10,7 @@ All compiled CSS are processed by [css-loader](https://github.com/webpack-contri
 
 You can select pre-processors (Sass/Less/Stylus) when creating the project. If you did not do so, the internal webpack config is still pre-configured to handle all of them. You just need to manually install the corresponding webpack loaders:
 
-``` bash
+```bash
 # Sass
 npm install -D sass-loader sass
 
@@ -21,6 +21,15 @@ npm install -D less-loader less
 npm install -D stylus-loader stylus
 ```
 
+::: tip Note on webpack 4
+When using `webpack` version 4, the default in Vue CLI 4, you need to make sure your loaders are compatible with it. Otherwise you will get errors about confliciting peer dependencies. In this case you can use an older version of the loader that is still compatible with `webpack` 4.
+
+``` bash
+# Sass
+npm install -D sass-loader@^10 sass
+```
+:::
+ 
 Then you can import the corresponding file types, or use them in `*.vue` files with:
 
 ``` vue
@@ -81,7 +90,7 @@ In the production build, Vue CLI optimizes your CSS and will drop unnecessary ve
 
 You can [use CSS Modules in `*.vue` files](https://vue-loader.vuejs.org/en/features/css-modules.html) out of the box with `<style module>`.
 
-To import CSS or other pre-processor files as CSS Modules in JavaScript, the filename should end with `.module.(css|less|sass|scss|styl)`:
+To import CSS or other pre-processor files as CSS Modules in JavaScript, the filename should end with `.module(s).(css|less|sass|scss|styl)`:
 
 ``` js
 import styles from './foo.module.css'
@@ -89,18 +98,7 @@ import styles from './foo.module.css'
 import sassStyles from './foo.module.scss'
 ```
 
-If you want to drop the `.module` in the filenames, set `css.requireModuleExtension` to `false` in `vue.config.js`:
-
-``` js
-// vue.config.js
-module.exports = {
-  css: {
-    requireModuleExtension: false
-  }
-}
-```
-
-If you wish to customize the generated CSS modules class names, you can do so via `css.loaderOptions.css` in `vue.config.js`. All `css-loader` options are supported here, for example `localIdentName` and `camelCase`:
+If you want to drop the `.module` in the file names and treat all style files as CSS Modules, you need to configure the `css-loader` option as follows:
 
 ``` js
 // vue.config.js
@@ -108,12 +106,31 @@ module.exports = {
   css: {
     loaderOptions: {
       css: {
-        // Note: the following config format is different between Vue CLI v4 and v3
-        // For Vue CLI v3 users, please refer to css-loader v1 documentations
-        // https://github.com/webpack-contrib/css-loader/tree/v1.0.1
         modules: {
-          localIdentName: '[name]-[hash]',
-          localsConvention: 'camelCaseOnly'
+          auto: () => true
+        }
+      }
+    }
+  }
+}
+```
+
+If you wish to customize the generated CSS Modules class names, you can do so via `css.loaderOptions.css` in `vue.config.js`, too. All `css-loader` options are supported here:
+
+``` js
+// vue.config.js
+module.exports = {
+  css: {
+    loaderOptions: {
+      css: {
+        // Note: the following config format is different between different Vue CLI versions
+        // See the corresponding css-loader documentation for more details.
+        // Vue CLI v3 uses css-loader v1: https://www.npmjs.com/package/css-loader/v/1.0.1
+        // Vue CLI v4 uses css-loader v3: https://www.npmjs.com/package/css-loader/v/3.6.0
+        // Vue CLI v5 uses css-loader v5: https://github.com/webpack-contrib/css-loader#readme
+        modules: {
+          localIdentName: '[name]-[hash]'
+          exportLocalsConvention: 'camelCaseOnly'
         }
       }
     }
@@ -133,16 +150,17 @@ module.exports = {
       // pass options to sass-loader
       // @/ is an alias to src/
       // so this assumes you have a file named `src/variables.sass`
+      // Note: this option is named as "prependData" in sass-loader v8
       sass: {
-        data: `@import "~@/variables.sass"`
+        additionalData: `@import "~@/variables.sass"`
       },
       // by default the `sass` option will apply to both syntaxes
       // because `scss` syntax is also processed by sass-loader underlyingly
-      // but when configuring the `data` option
+      // but when configuring the `prependData` option
       // `scss` syntax requires an semicolon at the end of a statement, while `sass` syntax requires none
       // in that case, we can target the `scss` syntax separately using the `scss` option
       scss: {
-        data: `@import "~@/variables.scss";`
+        additionalData: `@import "~@/variables.scss";`
       },
       // pass Less.js Options to less-loader
       less:{

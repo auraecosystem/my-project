@@ -8,7 +8,7 @@
 
 - `index.html` 会带有注入的资源和 resource hint
 - 第三方库会被分到一个独立包以便更好的缓存
-- 小于 4kb 的静态资源会被内联在 JavaScript 中
+- 小于 8KiB 的静态资源会被内联在 JavaScript 中
 - `public` 中的静态资源会被复制到输出目录中
 
 ## 库
@@ -19,6 +19,11 @@
 
 ::: tip 注意对 Vue 的依赖
 在库模式中，Vue 是*外置的*。这意味着包中不会有 Vue，即便你在代码中导入了 Vue。如果这个库会通过一个打包器使用，它将尝试通过打包器以依赖的方式加载 Vue；否则就会回退到一个全局的 `Vue` 变量。
+
+要避免此行为，可以在`build`命令中添加`--inline-vue`标志。
+```
+vue-cli-service build --target lib --inline-vue
+```
 :::
 
 
@@ -48,6 +53,10 @@ dist/myLib.css           0.33 kb                  0.23 kb
 - `dist/myLib.umd.min.js`：压缩后的 UMD 构建版本
 
 - `dist/myLib.css`：提取出来的 CSS 文件 (可以通过在 `vue.config.js` 中设置 `css: { extract: false }` 强制内联)
+
+::: warning 警告
+如果你在开发一个库或多项目仓库 (monorepo)，请注意导入 CSS **是具有副作用的**。请确保在 `package.json` 中**移除** `"sideEffects": false`，否则 CSS 代码块会在生产环境构建时被 webpack 丢掉。
+:::
 
 ### Vue vs. JS/TS 入口文件
 
@@ -135,3 +144,20 @@ dist/foo.1.js        5.24 kb                     1.64 kb
 <!-- foo-one 的实现的 chunk 会在用到的时候自动获取 -->
 <foo-one></foo-one>
 ```
+
+## 在构建时使用 vuex
+在构建 [Web Components 组件](#web-components-组件)或[库](#库)时，入口点不是 `main.js` ，而是 `entry-wc.js` 文件，该文件由此生成： https://github.com/vuejs/vue-cli/blob/dev/packages/%40vue/cli-service/lib/commands/build/resolveWcEntry.js
+
+因此，要在 Web Components 组件的目标中使用 vuex ，你需要在 `App.vue` 中初始化存储 (store):
+``` js
+import store from './store'
+
+// ...
+
+export default {
+  store,
+  name: 'App',
+  // ...
+}
+```
+

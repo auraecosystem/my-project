@@ -1,5 +1,7 @@
+const path = require('path')
+
 module.exports = (api, options) => {
-  const { info, chalk, execa } = require('@vue/cli-shared-utils')
+  const { info, chalk, execa, resolveModule } = require('@vue/cli-shared-utils')
 
   api.registerCommand('test:e2e', {
     description: 'run e2e tests with Cypress',
@@ -14,7 +16,6 @@ module.exports = (api, options) => {
       `All Cypress CLI options are also supported:\n` +
       chalk.yellow(`https://docs.cypress.io/guides/guides/command-line.html#cypress-run`)
   }, async (args, rawArgs) => {
-    removeArg(rawArgs, 'headless', 0)
     removeArg(rawArgs, 'mode')
     removeArg(rawArgs, 'url')
     removeArg(rawArgs, 'config')
@@ -32,11 +33,21 @@ module.exports = (api, options) => {
       ...rawArgs
     ]
 
-    const cypressBinPath = require.resolve('cypress/bin/cypress')
+    // Use loadModule to allow users to customize their Cypress dependency version.
+    const cypressPackageJsonPath =
+      resolveModule('cypress/package.json', api.getCwd()) ||
+      resolveModule('cypress/package.json', __dirname)
+    const cypressPkg = require(cypressPackageJsonPath)
+    const cypressBinPath = path.resolve(
+      cypressPackageJsonPath,
+      '../',
+      cypressPkg.bin.cypress
+    )
+
     const runner = execa(cypressBinPath, cyArgs, { stdio: 'inherit' })
     if (server) {
-      runner.on('exit', () => server.close())
-      runner.on('error', () => server.close())
+      runner.on('exit', () => server.stop())
+      runner.on('error', () => server.stop())
     }
 
     if (process.env.VUE_CLI_TEST) {
@@ -54,9 +65,10 @@ module.exports.defaultModes = {
 }
 
 function removeArg (rawArgs, argToRemove, offset = 1) {
-  const matchRE = new RegExp(`^--${argToRemove}`)
+  const matchRE = new RegExp(`^--${argToRemove}$`)
   const equalRE = new RegExp(`^--${argToRemove}=`)
-  const i = rawArgs.findIndex(arg => matchRE.test(arg))
+
+  const i = rawArgs.findIndex(arg => matchRE.test(arg) || equalRE.test(arg))
   if (i > -1) {
     rawArgs.splice(i, offset + (equalRE.test(rawArgs[i]) ? 0 : 1))
   }

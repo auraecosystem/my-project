@@ -33,16 +33,24 @@ describe('Vue project manager', () => {
       cy.get('.next').click()
     })
     cy.get('.features').within(() => {
-      cy.get('[data-testid="pwa"] .bullet').click()
       cy.get('[data-testid="router"] .bullet').click()
       cy.get('[data-testid="vuex"] .bullet').click()
       cy.get('[data-testid="use-config-files"] .bullet').click()
       cy.get('.next').click()
     })
+
+    // choose vue 2
     cy.get('.config').within(() => {
       cy.get('.vue-ui-select').eq(0).click()
     })
+    cy.get('.vue-ui-select-button').eq(1).click()
+
+    // choose standard eslint config
+    cy.get('.config').within(() => {
+      cy.get('.vue-ui-select').eq(1).click()
+    })
     cy.get('.vue-ui-select-button').eq(2).click()
+
     cy.get('.config').within(() => {
       cy.get('.vue-ui-switch').click({ multiple: true })
       cy.get('.next').click()
@@ -73,7 +81,7 @@ describe('Vue project manager', () => {
       cy.get('.folder-explorer').should('be.visible')
       cy.get('.edit-path-button').click()
       cy.get('.path-input input').clear().type(Cypress.env('cwd') + '{enter}')
-      cy.get(`.folder-explorer-item:contains('cli-ui-test')`).click()
+      cy.get('.folder-explorer-item:contains(\'cli-ui-test\')').click()
       cy.get('.import-project').should('not.have.class', 'disabled').click()
     })
     cy.get('.project-home').should('be.visible')

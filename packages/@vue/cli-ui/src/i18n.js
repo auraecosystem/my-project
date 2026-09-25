@@ -15,7 +15,7 @@ function detectLanguage () {
     const lang = (window.navigator.languages && window.navigator.languages[0]) ||
       window.navigator.language ||
       window.navigator.userLanguage
-    return [ lang, lang.toLowerCase(), lang.substr(0, 2) ].map(lang => lang.replace('-', '_'))
+    return [lang, lang.toLowerCase(), lang.substr(0, 2)].map(lang => lang.replace('-', '_'))
   } catch (e) {
     return undefined
   }
@@ -23,7 +23,7 @@ function detectLanguage () {
 
 async function autoInstallLocale (lang) {
   try {
-    let response = await fetch(`https://unpkg.com/vue-cli-locales/locales/${lang}.json`)
+    const response = await fetch(`https://unpkg.com/vue-cli-locales/locales/${lang}.json`)
     if (response.ok) {
       const data = await response.json()
       mergeLocale(lang, data)
@@ -49,7 +49,14 @@ async function autoDetect () {
       console.log(`[UI] No locale data was found for your locale ${codes[0]}.`)
     }
 
-    const dateFnsLocale = i18n.locale.toLowerCase().replace(/-/g, '_')
+    let dateFnsLocale = i18n.locale
+    if (dateFnsLocale === 'en') {
+      dateFnsLocale = 'en-US'
+    } else if (dateFnsLocale === 'zh') {
+      // we use `zh` as language code in transifex, but date-fns only has zh-CN
+      dateFnsLocale = 'zh-CN'
+    }
+
     Vue.component('VueTimeago', createTimeago({
       name: 'VueTimeago',
       locale: i18n.locale,

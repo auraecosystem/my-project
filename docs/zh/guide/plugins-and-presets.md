@@ -14,7 +14,7 @@ Vue CLI 使用了一套基于插件的架构。如果你查阅一个新创建项
 
 每个 CLI 插件都会包含一个 (用来创建文件的) 生成器和一个 (用来调整 webpack 核心配置和注入命令的) 运行时插件。当你使用 `vue create` 来创建一个新项目的时候，有些插件会根据你选择的特性被预安装好。如果你想在一个已经被创建好的项目中安装一个插件，可以使用 `vue add` 命令：
 
-``` bash
+```bash
 vue add eslint
 ```
 
@@ -28,27 +28,27 @@ vue add eslint
 
 这个命令将 `@vue/eslint` 解析为完整的包名 `@vue/cli-plugin-eslint`，然后从 npm 安装它，调用它的生成器。
 
-``` bash
+```bash
 # 这个和之前的用法等价
 vue add cli-plugin-eslint
 ```
 
 如果不带 `@vue` 前缀，该命令会换作解析一个 unscoped 的包。例如以下命令会安装第三方插件 `vue-cli-plugin-apollo`：
 
-``` bash
+```bash
 # 安装并调用 vue-cli-plugin-apollo
 vue add apollo
 ```
 
 你也可以基于一个指定的 scope 使用第三方插件。例如如果一个插件名为 `@foo/vue-cli-plugin-bar`，你可以这样添加它：
 
-``` bash
+```bash
 vue add @foo/bar
 ```
 
 你可以向被安装的插件传递生成器选项 (这样做会跳过命令提示)：
 
-``` bash
+```bash
 vue add eslint --config airbnb --lintOn save
 ```
 
@@ -181,23 +181,27 @@ Preset 的数据会被插件生成器用来生成相应的项目文件。除了�
 
 发布 repo 后，你就可以在创建项目的时候通过 `--preset` 选项使用这个远程的 preset 了：
 
-``` bash
+```bash
 # 从 GitHub repo 使用 preset
 vue create --preset username/repo my-project
 ```
 
 GitLab 和 BitBucket 也是支持的。如果要从私有 repo 获取，请确保使用 `--clone` 选项：
 
-``` bash
+```bash
 vue create --preset gitlab:username/repo --clone my-project
 vue create --preset bitbucket:username/repo --clone my-project
+
+# 私有服务器
+vue create --preset gitlab:my-gitlab-server.com:group/projectname --clone my-project
+vue create --preset direct:ssh://git@my-gitlab-server.com/group/projectname.git --clone my-project
 ```
 
 ### 加载文件系统中的 Preset
 
 当开发一个远程 preset 的时候，你必须不厌其烦的向远程 repo 发出 push 进行反复测试。为了简化这个流程，你也可以直接在本地测试 preset。如果 `--preset` 选项的值是一个相对或绝对文件路径，或是以 `.json` 结尾，则 Vue CLI 会加载本地的 preset：
 
-``` bash
+```bash
 # ./my-preset 应当是一个包含 preset.json 的文件夹
 vue create --preset ./my-preset my-project
 

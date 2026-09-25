@@ -55,7 +55,6 @@ module.exports = {
     config.module
       .rule('vue')
       .use('vue-loader')
-        .loader('vue-loader')
         .tap(options => {
           // modify the options...
           return options
@@ -80,6 +79,10 @@ module.exports = {
       .test(/\.graphql$/)
       .use('graphql-tag/loader')
         .loader('graphql-tag/loader')
+        .end()
+      // Add another loader
+      .use('other-loader')
+        .loader('other-loader')
         .end()
   }
 }
@@ -153,29 +156,34 @@ The command will print the resolved webpack config to stdout, which also contain
 
 You can redirect the output into a file for easier inspection:
 
-``` bash
+```bash
 vue inspect > output.js
+```
+By default, `inspect` command will show the output for development config. To see the production configuration, you need to run
+
+```bash
+vue inspect --mode production > output.prod.js
 ```
 
 Note the output is not a valid webpack config file, it's a serialized format only meant for inspection.
 
 You can also inspect a subset of the config by specifying a path:
 
-``` bash
+```bash
 # only inspect the first rule
 vue inspect module.rules.0
 ```
 
 Or, target a named rule or plugin:
 
-``` bash
+```bash
 vue inspect --rule vue
 vue inspect --plugin html
 ```
 
 Finally, you can list all named rules and plugins:
 
-``` bash
+```bash
 vue inspect --rules
 vue inspect --plugins
 ```

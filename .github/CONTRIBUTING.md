@@ -1,3 +1,5 @@
+# Contributing to Vue CLI
+
 ## Workflow
 
 The Git workflow used in this project is largely inspired by [Gitflow workflow](https://www.atlassian.com/git/tutorials/comparing-workflows/gitflow-workflow).
@@ -24,6 +26,7 @@ yarn
 # if you have the old vue-cli installed globally, you may
 # need to uninstall it first.
 cd packages/@vue/cli
+# before yarn link, you can delete the link in `~/.config/yarn/link/@vue` (see issue: [yarn link error message is not helpful](https://github.com/yarnpkg/yarn/issues/7054))
 yarn link
 
 # create test projects in /packages/test
@@ -66,4 +69,4 @@ Note that `jest --onlyChanged` isn't always accurate because some tests spawn ch
 
 ### Plugin Development
 
-See [dedicated section in docs](https://github.com/vuejs/vue-cli/blob/dev/docs/dev-guide/plugin-dev.md).
+See [dedicated section in docs](https://cli.vuejs.org/dev-guide/plugin-dev.html).

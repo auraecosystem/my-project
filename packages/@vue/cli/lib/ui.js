@@ -1,6 +1,23 @@
 const { log, error, openBrowser } = require('@vue/cli-shared-utils')
 const { portfinder, server } = require('@vue/cli-ui/server')
 const shortid = require('shortid')
+const { setNotificationCallback } = require('@vue/cli-ui/apollo-server/util/notification')
+
+function simpleCorsValidation (allowedHost) {
+  return function (req, socket) {
+    const { host, origin } = req.headers
+
+    const safeOrigins = [
+      host,
+      allowedHost,
+      'localhost'
+    ]
+
+    if (!origin || !safeOrigins.includes(new URL(origin).hostname)) {
+      socket.destroy()
+    }
+  }
+}
 
 async function ui (options = {}, context = process.cwd()) {
   const host = options.host || 'localhost'
@@ -36,7 +53,9 @@ async function ui (options = {}, context = process.cwd()) {
     subscriptionsPath: '/graphql',
     enableMocks: false,
     enableEngine: false,
-    cors: '*',
+    cors: {
+      origin: host
+    },
     timeout: 1000000,
     quiet: true,
     paths: {
@@ -49,7 +68,7 @@ async function ui (options = {}, context = process.cwd()) {
     }
   }
 
-  server(opts, () => {
+  const { httpServer } = await server(opts, () => {
     // Reset for yarn/npm to work correctly
     if (typeof nodeEnv === 'undefined') {
       delete process.env.NODE_ENV
@@ -63,9 +82,12 @@ async function ui (options = {}, context = process.cwd()) {
     if (options.headless) {
       console.log(port)
     } else {
+      setNotificationCallback(() => openBrowser(url))
       openBrowser(url)
     }
   })
+
+  httpServer.on('upgrade', simpleCorsValidation(host))
 }
 
 module.exports = (...args) => {

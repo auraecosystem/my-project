@@ -1,3 +1,4 @@
+const getBaseUrl = require('./getBaseUrl')
 const prefixRE = /^VUE_APP_/
 
 module.exports = function resolveClientEnv (options, raw) {
@@ -7,7 +8,16 @@ module.exports = function resolveClientEnv (options, raw) {
       env[key] = process.env[key]
     }
   })
-  env.BASE_URL = options.publicPath
+  env.BASE_URL = getBaseUrl(options)
 
-  return env
+  if (raw) {
+    return env
+  }
+
+  for (const key in env) {
+    env[key] = JSON.stringify(env[key])
+  }
+  return {
+    'process.env': env
+  }
 }

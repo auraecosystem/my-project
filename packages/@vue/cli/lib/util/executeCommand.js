@@ -1,6 +1,5 @@
-const chalk = require('chalk')
+const { chalk, execa } = require('@vue/cli-shared-utils')
 const EventEmitter = require('events')
-const execa = require('execa')
 const readline = require('readline')
 
 const debug = require('debug')('vue-cli:install')
@@ -136,7 +135,7 @@ exports.executeCommand = function executeCommand (command, args, cwd) {
 
     child.on('close', code => {
       if (code !== 0) {
-        reject(`command failed: ${command} ${args.join(' ')}`)
+        reject(new Error(`command failed: ${command} ${args.join(' ')}`))
         return
       }
       resolve()

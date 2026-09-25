@@ -1,11 +1,15 @@
-const chalk = require('chalk')
-const semver = require('semver')
 const getVersions = require('./getVersions')
-const { clearConsole } = require('@vue/cli-shared-utils')
+const {
+  chalk,
+  semver,
+
+  clearConsole
+} = require('@vue/cli-shared-utils')
+
+const getGlobalInstallCommand = require('./getGlobalInstallCommand')
 
 exports.generateTitle = async function (checkUpdate) {
-  const { current, latest } = await getVersions()
-
+  const { current, latest, error } = await getVersions()
   let title = chalk.bold.blue(`Vue CLI v${current}`)
 
   if (process.env.VUE_CLI_TEST) {
@@ -14,14 +18,38 @@ exports.generateTitle = async function (checkUpdate) {
   if (process.env.VUE_CLI_DEBUG) {
     title += ' ' + chalk.magenta.bold('DEBUG')
   }
-  if (checkUpdate && semver.gt(latest, current)) {
+
+  if (error) {
+    title += '\n' + chalk.red('Failed to check for updates')
+  }
+
+  if (checkUpdate && !error && semver.gt(latest, current)) {
     if (process.env.VUE_CLI_API_MODE) {
-      title += chalk.green(` 🌟️ Update available: ${latest}`)
+      title += chalk.green(` 🌟️ New version available: ${latest}`)
     } else {
-      title += chalk.green(`
-┌────────────────────${`─`.repeat(latest.length)}──┐
-│  Update available: ${latest}  │
-└────────────────────${`─`.repeat(latest.length)}──┘`)
+      let upgradeMessage = `New version available ${chalk.magenta(current)} → ${chalk.green(latest)}`
+
+      try {
+        const command = getGlobalInstallCommand()
+        let name = require('../../package.json').name
+        if (semver.prerelease(latest)) {
+          name += '@next'
+        }
+
+        if (command) {
+          upgradeMessage +=
+            `\nRun ${chalk.yellow(`${command} ${name}`)} to update!`
+        }
+      } catch (e) {}
+
+      const upgradeBox = require('boxen')(upgradeMessage, {
+        align: 'center',
+        borderColor: 'green',
+        dimBorder: true,
+        padding: 1
+      })
+
+      title += `\n${upgradeBox}\n`
     }
   }
 

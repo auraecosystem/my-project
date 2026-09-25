@@ -5,11 +5,13 @@ const { defaults } = require('../lib/options')
 const assertPromptModule = require('@vue/cli-test-utils/assertPromptModule')
 
 test('default', async () => {
-  const epxectedPrompts = [
+  const expectedPrompts = [
     {
       message: 'pick a preset',
       choices: [
-        'default',
+        // both names are `Default`, the vue version is indicated in the feature prompts, so later we'll test the result preset for the vue version
+        'Default',
+        'Default',
         'Manually select'
       ],
       choose: 0
@@ -20,7 +22,7 @@ test('default', async () => {
       choose: 0
     }
   ]
-  await assertPromptModule([], epxectedPrompts, defaults.presets.default)
+  await assertPromptModule([], expectedPrompts, defaults.presets['Default (Vue 3)'])
 })
 
 test('manual + PromptModuleAPI', async () => {
@@ -61,7 +63,10 @@ test('manual + PromptModuleAPI', async () => {
   }
 
   const expectedPrompts = [
-    { choose: 1 },
+    {
+      message: 'Please pick a preset',
+      choose: 2 // manual
+    },
     {
       message: 'Check the features',
       choices: ['Foo', 'Bar'],
@@ -102,7 +107,8 @@ test('manual + PromptModuleAPI', async () => {
     {
       choices: [
         'test',
-        'default',
+        'Default',
+        'Default',
         'Manually'
       ],
       choose: 0

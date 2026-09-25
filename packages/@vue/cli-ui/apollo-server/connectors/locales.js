@@ -36,7 +36,7 @@ function reset (context) {
 }
 
 function _loadFolder (root, context) {
-  const paths = globby.sync([path.join(root, './locales/*.json')])
+  const paths = globby.sync(['./locales/*.json'], { cwd: root, absolute: true })
   paths.forEach(file => {
     const basename = path.basename(file)
     const lang = basename.substr(0, basename.indexOf('.'))
@@ -49,8 +49,8 @@ function loadFolder (root, context) {
   const folder = path.join(root, './locales')
   if (process.env.VUE_APP_CLI_UI_DEV && !watchedTrees.get(root) && fs.existsSync(folder)) {
     watchedTrees.set(root, true)
-    const watch = require('watch')
-    watch.watchTree(folder, () => {
+    const chokidar = require('chokidar')
+    chokidar.watch(folder).on('all', () => {
       _loadFolder(root, context)
       log('Locales reloaded', root)
     })

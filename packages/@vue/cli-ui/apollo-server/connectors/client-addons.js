@@ -4,7 +4,7 @@ const channels = require('../channels')
 // Utils
 const { resolveModuleRoot } = require('../util/resolve-path')
 
-let addons = []
+const addons = []
 
 let baseUrl = process.env.VUE_APP_CLI_UI_URL
 if (typeof baseUrl === 'undefined') {
@@ -63,7 +63,7 @@ function serve (req, res) {
     }
   } else {
     res.status(404)
-    res.send(`Addon ${id} not found in loaded addons. Try opening a vue-cli project first?`)
+    res.send('Addon not found in loaded addons. Try opening a vue-cli project first?')
   }
 }
 

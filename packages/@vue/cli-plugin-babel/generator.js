@@ -7,10 +7,13 @@ module.exports = api => {
 
   api.extendPackage({
     babel: {
-      presets: ['@vue/app']
+      presets: ['@vue/cli-plugin-babel/preset']
+    },
+    vue: {
+      transpileDependencies: true
     },
     dependencies: {
-      'core-js': '^3.1.2'
+      'core-js': '^3.8.3'
     }
   })
 }

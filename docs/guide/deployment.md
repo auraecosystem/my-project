@@ -10,7 +10,7 @@ If you are developing your frontend app separately from your backend - i.e. your
 
 The `dist` directory is meant to be served by an HTTP server (unless you've configured `publicPath` to be a relative value), so it will not work if you open `dist/index.html` directly over `file://` protocol. The easiest way to preview your production build locally is using a Node.js static file server, for example [serve](https://github.com/zeit/serve):
 
-``` bash
+```bash
 npm install -g serve
 # -s flag means serve it in Single-Page Application mode
 # which deals with the routing problem below
@@ -21,7 +21,7 @@ serve -s dist
 
 If you are using Vue Router in `history` mode, a simple static file server will fail. For example, if you used Vue Router with a route for `/todos/42`, the dev server has been configured to respond to `localhost:3000/todos/42` properly, but a simple static server serving a production build will respond with a 404 instead.
 
-To fix that, you will need to configure your production server to fallback to `index.html` for any requests that do not match a static file. The Vue Router docs provides [configuration instructions for common server setups](https://router.vuejs.org/guide/essentials/history-mode.html).
+To fix that, you will need to configure your production server to fallback to `index.html` for any requests that do not match a static file. The Vue Router docs provide [configuration instructions for common server setups](https://router.vuejs.org/guide/essentials/history-mode.html).
 
 ### CORS
 
@@ -39,11 +39,13 @@ If you are using the PWA plugin, your app must be served over HTTPS so that [Ser
 
 1. Set correct `publicPath` in `vue.config.js`.
 
-    If you are deploying to `https://<USERNAME>.github.io/`, you can omit `publicPath` as it defaults to `"/"`.
+    If you are deploying to `https://<USERNAME>.github.io/` or to a custom domain, you can omit `publicPath` as it defaults to `"/"`.
 
     If you are deploying to `https://<USERNAME>.github.io/<REPO>/`, (i.e. your repository is at `https://github.com/<USERNAME>/<REPO>`), set `publicPath` to `"/<REPO>/"`. For example, if your repo name is "my-project", your `vue.config.js` should look like this:
 
     ``` js
+    // vue.config.js file to be placed in the root of your repository
+
     module.exports = {
       publicPath: process.env.NODE_ENV === 'production'
         ? '/my-project/'
@@ -53,7 +55,7 @@ If you are using the PWA plugin, your app must be served over HTTPS so that [Ser
 
 2. Inside your project, create `deploy.sh` with the following content (with highlighted lines uncommented appropriately) and run it to deploy:
 
-    ``` bash{13,20,23}
+    ```bash{13,20,23}
     #!/usr/bin/env sh
 
     # abort on errors
@@ -73,15 +75,15 @@ If you are using the PWA plugin, your app must be served over HTTPS so that [Ser
     git commit -m 'deploy'
 
     # if you are deploying to https://<USERNAME>.github.io
-    # git push -f git@github.com:<USERNAME>/<USERNAME>.github.io.git master
+    # git push -f git@github.com:<USERNAME>/<USERNAME>.github.io.git main
 
     # if you are deploying to https://<USERNAME>.github.io/<REPO>
-    # git push -f git@github.com:<USERNAME>/<REPO>.git master:gh-pages
+    # git push -f git@github.com:<USERNAME>/<REPO>.git main:gh-pages
 
     cd -
     ```
 
-#### Using Travis CI for automatic updates 
+#### Using Travis CI for automatic updates
 
 1. Set correct `publicPath` in `vue.config.js` as explained above.
 
@@ -90,7 +92,7 @@ If you are using the PWA plugin, your app must be served over HTTPS so that [Ser
 3. Generate a GitHub [access token](https://help.github.com/en/articles/creating-a-personal-access-token-for-the-command-line)
    with repo permissions.
 
-4. Grant the Travis job access to your repository: `travis set GITHUB_TOKEN=xxx`
+4. Grant the Travis job access to your repository: `travis env set GITHUB_TOKEN xxx`
    (`xxx` is the personal access token from step 3.)
 
 5. Create a `.travis.yml` file in the root of your project.
@@ -110,7 +112,7 @@ If you are using the PWA plugin, your app must be served over HTTPS so that [Ser
      github_token: $GITHUB_TOKEN
      local_dir: dist
      on:
-       branch: master
+       branch: main
     ```
 
 6. Push the `.travis.yml` file to your repository to trigger the first build.
@@ -130,6 +132,8 @@ pages: # the job must be named pages
     - npm run build
     - mv public public-vue # GitLab Pages hooks on the public folder
     - mv dist public # rename the dist folder (result of npm run build)
+    # optionally, you can activate gzip support with the following line:
+    - find public -type f -regex '.*\.\(htm\|html\|txt\|text\|js\|css\)$' -exec gzip -f -k {} \;
   artifacts:
     paths:
       - public # artifact path must be /public for GitLab Pages to pick it up
@@ -137,15 +141,15 @@ pages: # the job must be named pages
     - master
 ```
 
-Typically, your static website will be hosted on https://yourUserName.gitlab.io/yourProjectName, so you will also want to create an initial `vue.config.js` file to [update the `BASE_URL`](https://github.com/vuejs/vue-cli/tree/dev/docs/config#baseurl) value to match:
+Typically, your static website will be hosted on https://yourUserName.gitlab.io/yourProjectName, so you will also want to create an initial `vue.config.js` file to [update the `BASE_URL`](https://github.com/vuejs/vue-cli/tree/dev/docs/config#baseurl) value to match your project name (the [`CI_PROJECT_NAME` environment variable](https://docs.gitlab.com/ee/ci/variables/predefined_variables.html) contains this value):
+
 
 ```javascript
-// vue.config.js file to be place in the root of your repository
-// make sure you update `yourProjectName` with the name of your GitLab project
+// vue.config.js file to be placed in the root of your repository
 
 module.exports = {
   publicPath: process.env.NODE_ENV === 'production'
-    ? '/yourProjectName/'
+    ? '/' + process.env.CI_PROJECT_NAME + '/'
     : '/'
 }
 ```
@@ -165,24 +169,54 @@ Commit both the `.gitlab-ci.yml` and `vue.config.js` files before pushing to you
 
 Also checkout [vue-cli-plugin-netlify-lambda](https://github.com/netlify/vue-cli-plugin-netlify-lambda).
 
-In order to receive direct hits using `history mode` on Vue Router, you need to create a file called `_redirects` under `/public` with the following content:
+#### Use history mode on Vue Router
+
+In order to receive direct hits using `history mode` on Vue Router, you need to redirect all traffic to the `/index.html` file.
+
+> More information on [Netlify redirects documentation](https://docs.netlify.com/routing/redirects/rewrites-proxies/#history-pushstate-and-single-page-apps).
+
+##### Recomended method
+
+Create a file called `netlify.toml` in the root of your repository with the following content:
+
+```toml
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200
+```
+
+##### Alternative method
+Create a file called `_redirects` under `/public` with the following content:
 
 ```
 # Netlify settings for single-page application
 /*    /index.html   200
 ```
 
-More information on [Netlify redirects documentation](https://www.netlify.com/docs/redirects/#history-pushstate-and-single-page-apps).
+If you are using [@vue/cli-plugin-pwa](https://cli.vuejs.org/core-plugins/pwa.html#vue-cli-plugin-pwa) make sure to exclude the `_redirects` file from being cached by the service worker.
+To do so, add the following to your `vue.config.js`:
+```javascript
+// vue.config.js file to be placed in the root of your repository
+
+module.exports = {
+  pwa: {
+      workboxOptions: {
+        exclude: [/_redirects/]
+      }
+    }
+}
+```
+Checkout [workboxOptions](https://cli.vuejs.org/core-plugins/pwa.html#configuration) and [exclude](https://developers.google.com/web/tools/workbox/reference-docs/latest/module-workbox-webpack-plugin.InjectManifest#InjectManifest) for more.
 
 ### Render
 
 [Render](https://render.com) offers [free static site hosting](https://render.com/docs/static-sites) with fully managed SSL, a global CDN and continuous auto deploys from GitHub.
 
-1. Create a new Web Service on Render, and give Render’s GitHub app permission to access your Vue repo.
+1. Create a new Static Site on Render, and give Render’s GitHub app permission to access your Vue repo.
 
 2. Use the following values during creation:
 
-    - **Environment:** `Static Site`
     - **Build Command:** `npm run build` or `yarn build`
     - **Publish directory:** `dist`
 
@@ -259,83 +293,44 @@ firebase deploy --only hosting
 
 If you want other Firebase CLI features you use on your project to be deployed, run `firebase deploy` without the `--only` option.
 
-You can now access your project on `https://<YOUR-PROJECT-ID>.firebaseapp.com`.
+You can now access your project on `https://<YOUR-PROJECT-ID>.firebaseapp.com` or `https://<YOUR-PROJECT-ID>.web.app`.
 
 Please refer to the [Firebase Documentation](https://firebase.google.com/docs/hosting/deploying) for more details.
 
-### Now
+### Vercel
 
-This example uses the latest Now platform version 2.
+[Vercel](https://vercel.com/home) is a cloud platform that enables developers to host Jamstack websites and web services that deploy instantly, scale automatically, and requires no supervision, all with zero configuration. They provide a global edge network, SSL encryption, asset compression, cache invalidation, and more.
 
-1. Install the Now CLI:
+#### Step 1: Deploying your Vue project to Vercel
 
-```bash
-npm install -g now
+To deploy your Vue project with a [Vercel for Git Integration](https://vercel.com/docs/git-integrations), make sure it has been pushed to a Git repository.
 
-# Or, if you prefer a local one
-npm install now
-```
+Import the project into Vercel using the [Import Flow](https://vercel.com/import/git). During the import, you will find all relevant [options](https://vercel.com/docs/build-step#build-&-development-settings) preconfigured for you with the ability to change as needed.
 
-2. Add a `now.json` file to your project root:
+After your project has been imported, all subsequent pushes to branches will generate [Preview Deployments](https://vercel.com/docs/platform/deployments#preview), and all changes made to the [Production Branch](https://vercel.com/docs/git-integrations#production-branch) (commonly "master" or "main") will result in a [Production Deployment](https://vercel.com/docs/platform/deployments#production).
 
-    ```json
-    {
-      "name": "my-example-app",
-      "version": 2,
-      "builds": [
-        {
-          "src": "package.json",
-          "use": "@now/static-build"
-        }
-      ],
-      "routes": [
-        {
-          "src": "/(js|css|img)/.*",
-          "headers": { "cache-control": "max-age=31536000, immutable" }
-        },
-        { "handle": "filesystem" },
-        { "src": ".*", "dest": "/" }
-      ],
-      "alias": "example.com"
-    }
-    ```
+Once deployed, you will get a URL to see your app live, such as the following: https://vue-example-tawny.vercel.app/.
 
-    If you have different/additional folders, modify the route accordingly:
+#### Step 2 (optional): Using a Custom Domain
 
-    ```diff
-    - {
-    -   "src": "/(js|css|img)/.*",
-    -   "headers": { "cache-control": "max-age=31536000, immutable" }
-    - }
-    + {
-    +   "src": "/(js|css|img|fonts|media)/.*",
-    +   "headers": { "cache-control": "max-age=31536000, immutable" }
-    + }
-    ```
+If you want to use a Custom Domain with your Vercel deployment, you can **Add** or **Transfer in** your domain via your Vercel [account Domain settings.](https://vercel.com/dashboard/domains)
 
-    If your `outputDir` is not the default `dist`, say `build`:
+To add your domain to your project, navigate to your [Project](https://vercel.com/docs/platform/projects) from the Vercel Dashboard. Once you have selected your project, click on the "Settings" tab, then select the **Domains** menu item. From your projects **Domain** page, enter the domain you wish to add to your project.
 
-    ```diff
-    - {
-    -   "src": "package.json",
-    -   "use": "@now/static-build"
-    - }
-    + {
-    +   "src": "package.json",
-    +   "use": "@now/static-build",
-    +   "config": { "distDir": "build" }
-    + }
-    ```
+Once the domain has been added, you will be presented with different methods for configuring it.
 
-3. Adding a `now-build` script in `package.json`:
+#### Deploying a fresh Vue project
 
-    ```json
-    "now-build": "npm run build"
-    ```
-    
-    To make a deployment, run `now`.
+You can deploy a fresh Vue project, with a Git repository set up for you, with the following Deploy Button:
 
-    If you want your deployment aliased, run `now --target production` instead.
+[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/import/git?s=https%3A%2F%2Fgithub.com%2Fvercel%2Fvercel%2Ftree%2Fmaster%2Fexamples%2Fvue)
+
+## References:
+
+- [Example Source](https://github.com/vercel/vercel/tree/master/examples/vue)
+- [Official Vercel Guide](https://vercel.com/guides/deploying-vuejs-to-vercel)
+- [Vercel Deployment Docs](https://vercel.com/docs)
+- [Vercel Custom Domain Docs](https://vercel.com/docs/custom-domains)
 
 ### Stdlib
 
@@ -368,16 +363,16 @@ heroku login
 heroku create
 heroku buildpacks:add heroku/nodejs
 heroku buildpacks:add https://github.com/heroku/heroku-buildpack-static
-git push heroku master
+git push heroku main
 ```
 
-More info: https://gist.github.com/hone/24b06869b4c1eca701f9
+More info: [Getting started with SPAs on Heroku](https://gist.github.com/hone/24b06869b4c1eca701f9)
 
 ### Surge
 
 To deploy with [Surge](http://surge.sh/) the steps are very straightforward.
 
-First you would need to build your project by running `npm run build`. And if you haven't installed Surge's command line tool, you can simply do so by running the command:
+First, you would need to build your project by running `npm run build`. And if you haven't installed Surge's command line tool, you can simply do so by running the command:
 
 ```bash
 npm install --global surge
@@ -401,15 +396,15 @@ Verify your project is successfully published by Surge by visiting `myawesomepro
 
 1. As described in the [Bitbucket documentation](https://confluence.atlassian.com/bitbucket/publishing-a-website-on-bitbucket-cloud-221449776.html) you need to create a repository named exactly `<USERNAME>.bitbucket.io`.
 
-2. It is possible to publish to a subfolder of the main repository, for instance if you want to have multiple websites. In that case set correct `publicPath` in `vue.config.js`.
+2. It is possible to publish to a subfolder of the main repository, for instance if you want to have multiple websites. In that case, set correct `publicPath` in `vue.config.js`.
 
     If you are deploying to `https://<USERNAME>.bitbucket.io/`, you can omit `publicPath` as it defaults to `"/"`.
 
-    If you are deploying to `https://<USERNAME>.bitbucket.io/<SUBFOLDER>/`, set `publicPath` to `"/<SUBFOLDER>/"`. In this case the directory structure of the repository should reflect the url structure, for instance the repository should have a `/<SUBFOLDER>` directory.
+    If you are deploying to `https://<USERNAME>.bitbucket.io/<SUBFOLDER>/`, set `publicPath` to `"/<SUBFOLDER>/"`. In this case, the directory structure of the repository should reflect the url structure, for instance, the repository should have a `/<SUBFOLDER>` directory.
 
 3. Inside your project, create `deploy.sh` with the following content and run it to deploy:
 
-    ``` bash{13,20,23}
+    ```bash{13,20,23}
     #!/usr/bin/env sh
 
     # abort on errors
@@ -438,15 +433,17 @@ Deploy your application using nginx inside of a docker container.
 
 2. Create a `Dockerfile` file in the root of your project.
 
-    ```Dockerfile
-    FROM node:10
-    COPY ./ /app
+    ```docker
+    FROM node:latest as build-stage
     WORKDIR /app
-    RUN npm install && npm run build
+    COPY package*.json ./
+    RUN npm install
+    COPY ./ .
+    RUN npm run build
 
-    FROM nginx
+    FROM nginx as production-stage
     RUN mkdir /app
-    COPY --from=0 /app/dist /app
+    COPY --from=build-stage /app/dist /app
     COPY nginx.conf /etc/nginx/nginx.conf
     ```
 
@@ -454,7 +451,7 @@ Deploy your application using nginx inside of a docker container.
 
     Setting up the `.dockerignore` file prevents `node_modules` and any intermediate build artifacts from being copied to the image which can cause issues during building.
 
-    ```gitignore
+    ```
     **/node_modules
     **/dist
     ```
@@ -465,7 +462,7 @@ Deploy your application using nginx inside of a docker container.
 
     The following is a simple `nginx` configuration that serves your vue project on port `80`. The root `index.html` is served for `page not found` / `404` errors which allows us to use `pushState()` based routing.
 
-    ```text
+    ```nginx
     user  nginx;
     worker_processes  1;
     error_log  /var/log/nginx/error.log warn;

@@ -1,10 +1,16 @@
 module.exports = api => {
   api.chainWebpack(webpackConfig => {
     if (process.env.NODE_ENV === 'test') {
+      webpackConfig.mode('none')
+
       webpackConfig.merge({
         target: 'node',
         devtool: 'inline-cheap-module-source-map'
       })
+
+      const { semver, loadModule } = require('@vue/cli-shared-utils')
+      const vue = loadModule('vue', api.service.context)
+      const isVue3 = (vue && semver.major(vue.version) === 3)
 
       // when target === 'node', vue-loader will attempt to generate
       // SSR-optimized code. We need to turn that off here.
@@ -12,7 +18,12 @@ module.exports = api => {
         .rule('vue')
           .use('vue-loader')
           .tap(options => {
-            options.optimizeSSR = false
+            if (isVue3) {
+              options.isServerBuild = false
+            } else {
+              options.optimizeSSR = false
+            }
+
             return options
           })
     }
@@ -37,12 +48,13 @@ module.exports = api => {
       `https://sysgears.github.io/mochapack/docs/installation/cli-usage.html`
     )
   }, (args, rawArgv) => {
-    const inspectPos = rawArgv.indexOf('--inspect-brk')
     let nodeArgs = []
+
+    const inspectPos = rawArgv.findIndex(arg => arg.startsWith('--inspect-brk'))
     if (inspectPos !== -1) {
-      nodeArgs = rawArgv.splice(inspectPos, inspectPos + 1)
+      nodeArgs = rawArgv.splice(inspectPos, 1)
     }
-    // for @vue/babel-preset-app
+    // for @vue/babel-preset-app <= v4.0.0-rc.7
     process.env.VUE_CLI_BABEL_TARGET_NODE = true
     // start runner
     const { execa } = require('@vue/cli-shared-utils')
@@ -57,11 +69,13 @@ module.exports = api => {
       '--webpack-config',
       require.resolve('@vue/cli-service/webpack.config.js'),
       ...rawArgv,
-      ...(hasInlineFilesGlob ? [] : [
-        api.hasPlugin('typescript')
-          ? `tests/unit/**/*.spec.ts`
-          : `tests/unit/**/*.spec.js`
-      ])
+      ...(hasInlineFilesGlob
+        ? []
+        : [
+          api.hasPlugin('typescript')
+            ? `tests/unit/**/*.spec.[jt]s`
+            : `tests/unit/**/*.spec.js`
+        ])
     ]
 
     return new Promise((resolve, reject) => {
@@ -69,7 +83,7 @@ module.exports = api => {
       child.on('error', reject)
       child.on('exit', code => {
         if (code !== 0) {
-          reject(`mochapack exited with code ${code}.`)
+          reject(new Error(`mochapack exited with code ${code}.`))
         } else {
           resolve()
         }

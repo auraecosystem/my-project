@@ -1,9 +1,6 @@
 const path = require('path')
-const chalk = require('chalk')
 const debug = require('debug')
-const execa = require('execa')
 const inquirer = require('inquirer')
-const semver = require('semver')
 const EventEmitter = require('events')
 const Generator = require('./Generator')
 const cloneDeep = require('lodash.clonedeep')
@@ -17,25 +14,31 @@ const { formatFeatures } = require('./util/features')
 const loadLocalPreset = require('./util/loadLocalPreset')
 const loadRemotePreset = require('./util/loadRemotePreset')
 const generateReadme = require('./util/generateReadme')
+const { resolvePkg, isOfficialPlugin } = require('@vue/cli-shared-utils')
 
 const {
   defaults,
   saveOptions,
   loadOptions,
   savePreset,
-  validatePreset
+  validatePreset,
+  rcPath
 } = require('./options')
 
 const {
+  chalk,
+  execa,
+
   log,
   warn,
   error,
+
   hasGit,
   hasProjectGit,
   hasYarn,
   hasPnpm3OrLater,
-  logWithSpinner,
-  stopSpinner,
+  hasPnpmVersionOrLater,
+
   exit,
   loadModule
 } = require('@vue/cli-shared-utils')
@@ -49,6 +52,7 @@ module.exports = class Creator extends EventEmitter {
     this.name = name
     this.context = process.env.VUE_CLI_CONTEXT = context
     const { presetPrompt, featurePrompt } = this.resolveIntroPrompts()
+
     this.presetPrompt = presetPrompt
     this.featurePrompt = featurePrompt
     this.outroPrompts = this.resolveOutroPrompts()
@@ -73,7 +77,7 @@ module.exports = class Creator extends EventEmitter {
         preset = await this.resolvePreset(cliOptions.preset, cliOptions.clone)
       } else if (cliOptions.default) {
         // vue create foo --default
-        preset = defaults.presets.default
+        preset = defaults.presets['Default (Vue 3)']
       } else if (cliOptions.inlinePreset) {
         // vue create foo --inlinePreset {...}
         try {
@@ -118,26 +122,23 @@ module.exports = class Creator extends EventEmitter {
       (hasYarn() ? 'yarn' : null) ||
       (hasPnpm3OrLater() ? 'pnpm' : 'npm')
     )
-    const pm = new PackageManager({ context, forcePackageManager: packageManager })
 
     await clearConsole()
-    logWithSpinner(`✨`, `Creating project in ${chalk.yellow(context)}.`)
+    const pm = new PackageManager({ context, forcePackageManager: packageManager })
+
+    log(`✨  Creating project in ${chalk.yellow(context)}.`)
     this.emit('creation', { event: 'creating' })
 
-    // get latest CLI version
-    const { current, latest } = await getVersions()
-    let latestMinor = `${semver.major(latest)}.${semver.minor(latest)}.0`
+    // get latest CLI plugin version
+    const { latestMinor } = await getVersions()
 
-    // if using `next` branch of cli
-    if (semver.gte(current, latest) && semver.prerelease(current)) {
-      latestMinor = current
-    }
     // generate package.json with plugin dependencies
     const pkg = {
       name,
       version: '0.1.0',
       private: true,
-      devDependencies: {}
+      devDependencies: {},
+      ...resolvePkg(context)
     }
     const deps = Object.keys(preset.plugins)
     deps.forEach(dep => {
@@ -145,13 +146,17 @@ module.exports = class Creator extends EventEmitter {
         return
       }
 
-      // Note: the default creator includes no more than `@vue/cli-*` & `@vue/babel-preset-env`,
-      // so it is fine to only test `@vue` prefix.
-      // Other `@vue/*` packages' version may not be in sync with the cli itself.
-      pkg.devDependencies[dep] = (
-        preset.plugins[dep].version ||
-        ((/^@vue/.test(dep)) ? `^${latestMinor}` : `latest`)
-      )
+      let { version } = preset.plugins[dep]
+
+      if (!version) {
+        if (isOfficialPlugin(dep) || dep === '@vue/cli-service' || dep === '@vue/babel-preset-env') {
+          version = isTestOrDebug ? `latest` : `~${latestMinor}`
+        } else {
+          version = 'latest'
+        }
+      }
+
+      pkg.devDependencies[dep] = version
     })
 
     // write package.json
@@ -159,18 +164,29 @@ module.exports = class Creator extends EventEmitter {
       'package.json': JSON.stringify(pkg, null, 2)
     })
 
+    // generate a .npmrc file for pnpm, to persist the `shamefully-flatten` flag
+    if (packageManager === 'pnpm') {
+      const pnpmConfig = hasPnpmVersionOrLater('4.0.0')
+        // pnpm v7 makes breaking change to set strict-peer-dependencies=true by default, which may cause some problems when installing
+        ? 'shamefully-hoist=true\nstrict-peer-dependencies=false\n'
+        : 'shamefully-flatten=true\n'
+
+      await writeFileTree(context, {
+        '.npmrc': pnpmConfig
+      })
+    }
+
     // intilaize git repository before installing deps
     // so that vue-cli-service can setup git hooks.
     const shouldInitGit = this.shouldInitGit(cliOptions)
     if (shouldInitGit) {
-      logWithSpinner(`🗃`, `Initializing git repository...`)
+      log(`🗃  Initializing git repository...`)
       this.emit('creation', { event: 'git-init' })
       await run('git init')
     }
 
     // install plugins
-    stopSpinner()
-    log(`⚙  Installing CLI plugins. This might take a while...`)
+    log(`⚙\u{fe0f}  Installing CLI plugins. This might take a while...`)
     log()
     this.emit('creation', { event: 'plugins-install' })
 
@@ -184,7 +200,7 @@ module.exports = class Creator extends EventEmitter {
     // run generator
     log(`🚀  Invoking generators...`)
     this.emit('creation', { event: 'invoking-generators' })
-    const plugins = await this.resolvePlugins(preset.plugins)
+    const plugins = await this.resolvePlugins(preset.plugins, pkg)
     const generator = new Generator(context, {
       pkg,
       plugins,
@@ -199,12 +215,12 @@ module.exports = class Creator extends EventEmitter {
     log(`📦  Installing additional dependencies...`)
     this.emit('creation', { event: 'deps-install' })
     log()
-    if (!isTestOrDebug) {
+    if (!isTestOrDebug || process.env.VUE_CLI_TEST_DO_INSTALL_PLUGIN) {
       await pm.install()
     }
 
     // run complete cbs if any (injected by generators)
-    logWithSpinner('⚓', `Running completion hooks...`)
+    log(`⚓  Running completion hooks...`)
     this.emit('creation', { event: 'completion-hooks' })
     for (const cb of afterInvokeCbs) {
       await cb()
@@ -213,18 +229,12 @@ module.exports = class Creator extends EventEmitter {
       await cb()
     }
 
-    // generate README.md
-    stopSpinner()
-    log()
-    logWithSpinner('📄', 'Generating README.md...')
-    await writeFileTree(context, {
-      'README.md': generateReadme(generator.pkg, packageManager)
-    })
-
-    // generate a .npmrc file for pnpm, to persist the `shamefully-flatten` flag
-    if (packageManager === 'pnpm') {
+    if (!generator.files['README.md']) {
+      // generate README.md
+      log()
+      log('📄  Generating README.md...')
       await writeFileTree(context, {
-        '.npmrc': 'shamefully-flatten=true\n'
+        'README.md': generateReadme(generator.pkg, packageManager)
       })
     }
 
@@ -235,17 +245,17 @@ module.exports = class Creator extends EventEmitter {
       if (isTestOrDebug) {
         await run('git', ['config', 'user.name', 'test'])
         await run('git', ['config', 'user.email', 'test@test.com'])
+        await run('git', ['config', 'commit.gpgSign', 'false'])
       }
       const msg = typeof cliOptions.git === 'string' ? cliOptions.git : 'init'
       try {
-        await run('git', ['commit', '-m', msg])
+        await run('git', ['commit', '-m', msg, '--no-verify'])
       } catch (e) {
         gitCommitFailed = true
       }
     }
 
     // log instructions
-    stopSpinner()
     log()
     log(`🎉  Successfully created project ${chalk.yellow(name)}.`)
     if (!cliOptions.skipGetStarted) {
@@ -260,7 +270,7 @@ module.exports = class Creator extends EventEmitter {
 
     if (gitCommitFailed) {
       warn(
-        `Skipped git commit due to missing username and email in git config.\n` +
+        `Skipped git commit due to missing username and email in git config, or failed to sign commit.\n` +
         `You will need to perform the initial commit yourself.\n`
       )
     }
@@ -305,8 +315,9 @@ module.exports = class Creator extends EventEmitter {
     validatePreset(preset)
 
     // save preset
-    if (answers.save && answers.saveName) {
-      savePreset(answers.saveName, preset)
+    if (answers.save && answers.saveName && savePreset(answers.saveName, preset)) {
+      log()
+      log(`🎉  Preset ${chalk.yellow(answers.saveName)} saved in ${chalk.yellow(rcPath)}`)
     }
 
     debug('vue-cli:preset')(preset)
@@ -315,29 +326,25 @@ module.exports = class Creator extends EventEmitter {
 
   async resolvePreset (name, clone) {
     let preset
-    const savedPresets = loadOptions().presets || {}
+    const savedPresets = this.getPresets()
 
     if (name in savedPresets) {
       preset = savedPresets[name]
+    } else if (name === 'default') {
+      preset = savedPresets['Default (Vue 3)']
     } else if (name.endsWith('.json') || /^\./.test(name) || path.isAbsolute(name)) {
       preset = await loadLocalPreset(path.resolve(name))
     } else if (name.includes('/')) {
-      logWithSpinner(`Fetching remote preset ${chalk.cyan(name)}...`)
+      log(`Fetching remote preset ${chalk.cyan(name)}...`)
       this.emit('creation', { event: 'fetch-remote-preset' })
       try {
         preset = await loadRemotePreset(name, clone)
-        stopSpinner()
       } catch (e) {
-        stopSpinner()
         error(`Failed fetching remote preset ${chalk.cyan(name)}:`)
         throw e
       }
     }
 
-    // use default preset if user has not overwritten it
-    if (name === 'default' && !preset) {
-      preset = defaults.presets.default
-    }
     if (!preset) {
       error(`preset "${name}" not found.`)
       const presets = Object.keys(savedPresets)
@@ -354,21 +361,33 @@ module.exports = class Creator extends EventEmitter {
   }
 
   // { id: options } => [{ id, apply, options }]
-  async resolvePlugins (rawPlugins) {
+  async resolvePlugins (rawPlugins, pkg) {
     // ensure cli-service is invoked first
     rawPlugins = sortObject(rawPlugins, ['@vue/cli-service'], true)
     const plugins = []
     for (const id of Object.keys(rawPlugins)) {
       const apply = loadModule(`${id}/generator`, this.context) || (() => {})
       let options = rawPlugins[id] || {}
+
       if (options.prompts) {
-        const prompts = loadModule(`${id}/prompts`, this.context)
-        if (prompts) {
+        let pluginPrompts = loadModule(`${id}/prompts`, this.context)
+
+        if (pluginPrompts) {
+          const prompt = inquirer.createPromptModule()
+
+          if (typeof pluginPrompts === 'function') {
+            pluginPrompts = pluginPrompts(pkg, prompt)
+          }
+          if (typeof pluginPrompts.getPrompts === 'function') {
+            pluginPrompts = pluginPrompts.getPrompts(pkg, prompt)
+          }
+
           log()
           log(`${chalk.cyan(options._isPreset ? `Preset options:` : id)}`)
-          options = await inquirer.prompt(prompts)
+          options = await prompt(pluginPrompts)
         }
       }
+
       plugins.push({ id, apply, options })
     }
     return plugins
@@ -381,9 +400,16 @@ module.exports = class Creator extends EventEmitter {
 
   resolveIntroPrompts () {
     const presets = this.getPresets()
-    const presetChoices = Object.keys(presets).map(name => {
+    const presetChoices = Object.entries(presets).map(([name, preset]) => {
+      let displayName = name
+      // Vue version will be showed as features anyway,
+      // so we shouldn't display it twice.
+      if (name === 'Default (Vue 2)' || name === 'Default (Vue 3)') {
+        displayName = 'Default'
+      }
+
       return {
-        name: `${name} (${formatFeatures(presets[name])})`,
+        name: `${displayName} (${formatFeatures(preset)})`,
         value: name
       }
     })
@@ -419,7 +445,7 @@ module.exports = class Creator extends EventEmitter {
         name: 'useConfigFiles',
         when: isManualMode,
         type: 'list',
-        message: 'Where do you prefer placing config for Babel, PostCSS, ESLint, etc.?',
+        message: 'Where do you prefer placing config for Babel, ESLint, etc.?',
         choices: [
           {
             name: 'In dedicated config files',
@@ -492,6 +518,7 @@ module.exports = class Creator extends EventEmitter {
         return isManualMode(answers) && originalWhen(answers)
       }
     })
+
     const prompts = [
       this.presetPrompt,
       this.featurePrompt,

@@ -32,7 +32,7 @@ If you have a default `NODE_ENV` in your environment, you should either remove i
 
 You can specify env variables by placing the following files in your project root:
 
-``` bash
+```bash
 .env                # loaded in all cases
 .env.local          # loaded in all cases, ignored by git
 .env.[mode]         # only loaded in specified mode
@@ -43,12 +43,25 @@ An env file simply contains key=value pairs of environment variables:
 
 ```
 FOO=bar
-VUE_APP_SECRET=secret
+VUE_APP_NOT_SECRET_CODE=some_value
 ```
 
-Note that only variables that start with `VUE_APP_` will be statically embedded into the client bundle with `webpack.DefinePlugin`.
+::: warning
+Do not store any secrets (such as private API keys) in your app!
 
-For more detailed env parsing rules, please refer to [the documentation of `dotenv`](https://github.com/motdotla/dotenv#rules). We also use [dotenv-expand](https://github.com/motdotla/dotenv-expand) for variable expansion (available in Vue CLI 3.5+).
+Environment variables are embedded into the build, meaning anyone can view them by inspecting your app's files.
+:::
+
+Note that only `NODE_ENV`, `BASE_URL`, and variables that start with `VUE_APP_` will be statically embedded into the *client bundle* with `webpack.DefinePlugin`. It is to avoid accidentally exposing a private key on the machine that could have the same name.
+
+For more detailed env parsing rules, please refer to [the documentation of `dotenv`](https://github.com/motdotla/dotenv#rules). We also use [dotenv-expand](https://github.com/motdotla/dotenv-expand) for variable expansion (available in Vue CLI 3.5+). For example:
+
+```bash
+FOO=foo
+BAR=bar
+
+CONCAT=$FOO$BAR # CONCAT=foobar
+```
 
 Loaded variables will become available to all `vue-cli-service` commands, plugins and dependencies.
 
@@ -73,7 +86,7 @@ And the following `.env.staging` file:
 
 ```
 NODE_ENV=production
-VUE_APP_TITLE=My App (staging)
+VUE_APP_TITLE=My Staging App
 ```
 
 - `vue-cli-service build` builds a production app, loading `.env`, `.env.production` and `.env.production.local` if they are present;
@@ -87,10 +100,10 @@ In both cases, the app is built as a production app because of the `NODE_ENV`, b
 You can access env variables in your application code:
 
 ``` js
-console.log(process.env.VUE_APP_SECRET)
+console.log(process.env.VUE_APP_NOT_SECRET_CODE)
 ```
 
-During build, `process.env.VUE_APP_SECRET` will be replaced by the corresponding value. In the case of `VUE_APP_SECRET=secret`, it will be replaced by `"secret"`.
+During build, `process.env.VUE_APP_NOT_SECRET_CODE` will be replaced by the corresponding value. In the case of `VUE_APP_NOT_SECRET_CODE=some_value`, it will be replaced by `"some_value"`.
 
 In addition to `VUE_APP_*` variables, there are also two special variables that will always be available in your app code:
 

@@ -15,7 +15,7 @@ module.exports = cli => {
     message: 'Use class-style component syntax?',
     description: 'Use the @Component decorator on classes.',
     link: 'https://vuejs.org/v2/guide/typescript.html#Class-Style-Vue-Components',
-    default: true
+    default: answers => answers.vueVersion !== '3'
   })
 
   cli.injectPrompt({
@@ -31,10 +31,6 @@ module.exports = cli => {
     if (answers.features.includes('ts')) {
       const tsOptions = {
         classComponent: answers.tsClassComponent
-      }
-      if (answers.eslintConfig === 'tslint') {
-        tsOptions.tsLint = true
-        tsOptions.lintOn = answers.lintOn
       }
       if (answers.useTsWithBabel) {
         tsOptions.useTsWithBabel = true

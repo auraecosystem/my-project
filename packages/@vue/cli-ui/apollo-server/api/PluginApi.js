@@ -244,7 +244,7 @@ class PluginApi {
     try {
       validateClientAddon(options)
       if (options.url && options.path) {
-        throw new Error(`'url' and 'path' can't be defined at the same time.`)
+        throw new Error('\'url\' and \'path\' can\'t be defined at the same time.')
       }
       this.clientAddons.push({
         ...options,
@@ -335,7 +335,7 @@ class PluginApi {
           return
         }
       }
-      // eslint-disable-next-line standard/no-callback-literal
+      // eslint-disable-next-line node/no-callback-literal
       cb({ data, emit })
     }
     this.ipcHandlers.push(handler)

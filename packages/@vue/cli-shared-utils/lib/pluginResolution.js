@@ -1,18 +1,20 @@
-const pluginRE = /^(@vue\/|vue-|@[\w-]+\/vue-)cli-plugin-/
-const scopeRE = /^@[\w-]+\//
+const pluginRE = /^(@vue\/|vue-|@[\w-]+(\.)?[\w-]+\/vue-)cli-plugin-/
+const scopeRE = /^@[\w-]+(\.)?[\w-]+\//
 const officialRE = /^@vue\//
 
 const officialPlugins = [
   'babel',
   'e2e-cypress',
   'e2e-nightwatch',
+  'e2e-webdriverio',
   'eslint',
   'pwa',
   'router',
   'typescript',
   'unit-jest',
   'unit-mocha',
-  'vuex'
+  'vuex',
+  'webpack-4'
 ]
 
 exports.isPlugin = id => pluginRE.test(id)

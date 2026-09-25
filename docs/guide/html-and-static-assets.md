@@ -72,7 +72,7 @@ import(/* webpackPrefetch: true */ './someAsyncComponent.vue')
 webpack's runtime will inject prefetch links when the parent chunk is loaded.
 
 ::: tip
-Prefetch links will consume bandwidth. If you have a large app with many async chunks and your user are primarily mobile and thus bandwidth-aware, you may want to disable prefetch links and manually select chunks to prefetch.
+Prefetch links will consume bandwidth. If you have a large app with many async chunks and your users are primarily mobile and thus bandwidth-aware, you may want to disable prefetch links and manually select chunks to prefetch.
 :::
 
 ### Disable Index Generation
@@ -129,9 +129,9 @@ will be compiled into:
 h('img', { attrs: { src: require('./image.png') }})
 ```
 
-Internally, we use `file-loader` to determine the final file location with version hashes and correct public base paths, and use `url-loader` to conditionally inline assets that are smaller than 4kb, reducing the amount of HTTP requests.
+Internally, we configured webpack [Assets Modules](https://webpack.js.org/guides/asset-modules/) to determine the final file location with version hashes and correct public base paths, and conditionally inline assets that are smaller than 8KiB, reducing the amount of HTTP requests.
 
-You can adjust the inline file size limit via [chainWebpack](../config/#chainwebpack). For example, to set the limit to 10kb instead:
+You can adjust the inline file size limit via [chainWebpack](../config/#chainwebpack). For example, to set the limit of inline images to 4KiB instead:
 
 ``` js
 // vue.config.js
@@ -139,9 +139,11 @@ module.exports = {
   chainWebpack: config => {
     config.module
       .rule('images')
-        .use('url-loader')
-          .loader('url-loader')
-          .tap(options => Object.assign(options, { limit: 10240 }))
+        .set('parser', {
+          dataUrlCondition: {
+            maxSize: 4 * 1024 // 4KiB
+          }
+        })
   }
 }
 ```
